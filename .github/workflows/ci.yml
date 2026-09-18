@@ -44,3 +44,27 @@ jobs:
         exclude:
           - python-version: "3.14"
             framework: pygame
+
+  broken-peer-cleanup:
+    name: Native closed-peer cleanup
+    runs-on: macos-15
+    needs: pre-commit
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - run: python -m pip install briefcase==0.4.4
+      - name: Obtain the embedded Python framework
+        working-directory: stub
+        run: python -m briefcase create macOS Xcode --app gui-stub --no-input
+      - name: Exercise GUI and console hosts
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import subprocess
+          import sys
+          frameworks = list(Path("stub/build").glob("**/Python.xcframework/macos-*/Python.framework"))
+          assert len(frameworks) == 1, frameworks
+          subprocess.run([sys.executable, "tests/test_sigpipe.py", "--python-framework", str(frameworks[0])], check=True)
+          PY
