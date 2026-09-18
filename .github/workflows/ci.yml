@@ -26,15 +26,12 @@ jobs:
       pre-commit-source: pre-commit
 
   verify-apps:
-    name: Build apps
+    name: Build apps (${{ matrix.python-version }}, ${{ matrix.framework }})
     needs: pre-commit
-    uses: beeware/.github/.github/workflows/app-build-verify.yml@main
-    with:
-      python-version: ${{ matrix.python-version }}
-      runner-os: macos-15
-      framework: ${{ matrix.framework }}
-      target-platform: macOS
-      target-format: Xcode
+    runs-on: macos-15
+    timeout-minutes: 30
+    permissions:
+      contents: read
     strategy:
       fail-fast: false
       matrix:
@@ -44,6 +41,41 @@ jobs:
         exclude:
           - python-version: "3.14"
             framework: pygame
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: beeware/.github
+          ref: 8e2c74e9461ca02766fa490f8c850733b1f98924
+          path: beeware-.github
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install Oja's shipping Briefcase and matching automation
+        run: |
+          python -m pip install briefcase==0.4.4 \
+            'git+https://github.com/beeware/briefcase.git@v0.4.4#subdirectory=automation'
+      - name: Create automation app
+        id: create
+        uses: ./beeware-.github/.github/actions/app-create
+        with:
+          framework: ${{ matrix.framework == 'pygame' && 'Pygame' || matrix.framework }}
+          enable-automation: true
+      - name: Build, run and package with this template
+        working-directory: ${{ steps.create.outputs.project-path }}
+        env:
+          TEMPLATE_ROOT: ${{ github.workspace }}
+        run: |
+          briefcase create macOS Xcode --no-input --config "template=${TEMPLATE_ROOT}"
+          briefcase build macOS Xcode --no-input
+          briefcase run macOS Xcode --no-input
+          briefcase package macOS Xcode --no-input --adhoc-sign
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: logs-${{ matrix.python-version }}-${{ matrix.framework }}
+          path: apps/verifyapp/logs
 
   broken-peer-cleanup:
     name: Native closed-peer cleanup
