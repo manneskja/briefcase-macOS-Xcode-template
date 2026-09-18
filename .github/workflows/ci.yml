@@ -67,7 +67,7 @@ jobs:
         env:
           TEMPLATE_ROOT: ${{ github.workspace }}
         run: |
-          briefcase create macOS Xcode --no-input --config "template=${TEMPLATE_ROOT}"
+          briefcase create macOS Xcode --no-input --config "template='${TEMPLATE_ROOT}'"
           briefcase build macOS Xcode --no-input
           briefcase run macOS Xcode --no-input
           briefcase package macOS Xcode --no-input --adhoc-sign
