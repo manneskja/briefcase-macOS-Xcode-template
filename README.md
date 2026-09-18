@@ -59,3 +59,22 @@ To do something interesting, you'll need to work with the native macOS system li
 Regardless of whether you use Toga, or you write an application natively, the template project will try to start a Python module matching the name of the `MainModule` property in the `Info.plist` file associated with the project. If that module can't be started, any error raised will be logged, and the Python interpreter will be shut down. All console output and errors are automatically redirected to the macOS system console.
 
 If you have any external library dependencies (like Toga, or anything other third-party library), you should install the library code into the `app_packages` directory. This directory is the same as a  `site_packages` directory on a desktop Python install.
+
+## Closed-peer cleanup regression
+
+The native host ignores SIGPIPE before initializing isolated Python. A closed
+pipe or socket therefore reports EPIPE/BrokenPipeError and leaves application
+cleanup able to run; isolated Python does not install this disposition itself.
+The host leaves other signal dispositions unchanged.
+
+With Briefcase installed, run the native GUI and console regression against an
+existing Python Apple support framework:
+
+```text
+python tests/test_sigpipe.py --python-framework /path/to/Python.framework
+```
+
+The test renders and compiles this template in a temporary directory, writes to
+closed pipe and socket peers, and requires both the exception and cleanup markers.
+It does not mutate the supplied framework. CI obtains its own framework through
+Briefcase's normal create path.

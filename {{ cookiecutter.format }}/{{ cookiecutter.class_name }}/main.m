@@ -8,6 +8,7 @@
 #import <Python/Python.h>
 #include <dlfcn.h>
 #include <libgen.h>
+#include <signal.h>
 #include <mach-o/dyld.h>
 
 // A global indicator
@@ -26,6 +27,15 @@ void setup_stdout(NSBundle *);
 void crash_dialog(NSString *);
 
 int main(int argc, char *argv[]) {
+    // Isolated Python does not install its usual signal handlers. Closed
+    // socket/pipe peers must report EPIPE (BrokenPipeError in Python), not
+    // terminate the host before application and native resource cleanup.
+    // Establish this before Python initialization and any application imports;
+    // leave SIGINT/SIGTERM handling under the application's existing control.
+    if (signal(SIGPIPE, SIG_IGN) == SIG_ERR) {
+        perror("Unable to configure SIGPIPE handling");
+        return 1;
+    }
     int ret = 0;
     PyStatus status;
     PyPreConfig preconfig;
